@@ -166,13 +166,15 @@ fn main() {
 
     let custom_pathbuf = PathBuf::from(args.output);
 
+    println!("Processing playlist: {}", args.path.display());
+
     // remove last piece from the path of the original playlist and add the new one
     let mut new_path = PathBuf::from(playlist_path);
-    let filename = match new_path.file_name() {
+    let file_stem = match new_path.file_stem() {
         Some(s) => s.to_string_lossy().to_string(),
         None => panic!("Wrong output path"),
     };
-    let new_filename = format!("{}-processed.m3u", filename).to_string();
+    let new_filename = format!("{}-processed.m3u8", file_stem).to_string();
     new_path.set_file_name(new_filename);
 
     let file = File::open(&args.path).unwrap();
@@ -180,7 +182,7 @@ fn main() {
 
     for line in reader.lines() {
         if let Ok(s) = line {
-            if s != "#EXTM3U" {
+            if s != "#EXTM3U\n" {
                 playlist_lines.push(s);
             }
         }
@@ -206,6 +208,15 @@ fn main() {
             results.lock().unwrap()[i] = Some(r);
         });
 
+    println!(
+        "Done with analysis, now writing to output playlist: {}",
+        if use_custom_path {
+            custom_pathbuf.display()
+        } else {
+            new_path.display()
+        }
+    );
+
     let new_file = match OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -224,6 +235,7 @@ fn main() {
     };
     let mut writer = BufWriter::new(new_file);
 
+    write!(writer, "#EXTM3U\n").unwrap();
     for result in results.lock().unwrap().iter() {
         match result {
             Some(result) => write!(writer, "annotate:liq_queue_in=\"{:.3}\", liq_cross_duration=\"{:.3}\", duration=\"{:.3}\", liq_amplify=\"{:.3}dB\":{}\n", 
@@ -231,4 +243,6 @@ fn main() {
             None => continue
         }
     }
+
+    println!("Done!")
 }
