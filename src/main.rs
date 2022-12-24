@@ -45,6 +45,16 @@ fn first_time_threshold(measure: &Vec<(f32, f32)>, threshold: f32, rev: bool) ->
 }
 
 fn analyze(path: &str, vol_drop: f32, vol_start: f32) -> AnalyzeResult {
+    /*
+    Analyses file in filename, returns seconds to end-of-file of place where volume last drops to level
+    below average loudness, given in volDrop in LU.
+    Also determines file start, where monentary loudness leaps above a certain point given by volStart
+    Also encode and store a mezzanine file, if a mezzanine directory name is given
+    Make a list containing many points, 1/10 sec apart, where loudness is measured.
+    We need TIME and MOMENTARY LOUDNESS
+    We also need full INTEGRATED LOUDNESS
+    */
+
     println!("Processing filename: {}", path);
 
     let test = Command::new("ffmpeg")
@@ -60,6 +70,7 @@ fn analyze(path: &str, vol_drop: f32, vol_start: f32) -> AnalyzeResult {
         .arg("null")
         .output()
         .unwrap();
+    // We pass "-vn" because some music files have invalid images, which can't be processed by ffmpeg
 
     let test = match String::from_utf8(test.stderr) {
         Ok(t) => t,
@@ -86,11 +97,12 @@ fn analyze(path: &str, vol_drop: f32, vol_start: f32) -> AnalyzeResult {
         let m: f32 = test[i][m_i + 2..m_i + 8].trim().parse().unwrap();
         measure.push((t, m))
     }
+    // measure now contains a vector of a 2-float tuples: each item is ([time], [loudness])
 
-    // measure now contains a list of lists-of-floats: each item is [time],[loudness]
-
+    // get integrated loudness
     let loudness: f32 = test[test.len() - 8][15..20].trim().parse().unwrap();
 
+    // parse duration from the status line
     let partially_parsed_duration = &test[test.len() - 13][14..25];
     let hms_split: Vec<&str> = partially_parsed_duration.split(":").collect();
     let hours = hms_split[0].parse::<f32>().unwrap() * 3600.00;
@@ -98,15 +110,33 @@ fn analyze(path: &str, vol_drop: f32, vol_start: f32) -> AnalyzeResult {
     let seconds = hms_split[2].parse::<f32>().unwrap();
     let duration = hours + minutes + seconds;
 
+    /*
+    First, let us find the first timestamp where the momentary loudness is volStart below the
+    track's overall loudness level. That level is cueLevel
+    */
     let cue_level = loudness - vol_start;
 
     let ebu_cue_time = first_time_threshold(&measure, cue_level, false);
 
+    /*
+    The EBU R.128 algorithm measures in 400ms blocks. Therefore, it marks 0.4s as the
+    start of the track, even if its audio begins at 0.0s. So, we must subtract 400ms
+    from the given time, then use either that time, or 0.0s (if the result is negative)
+    as our track starting point.
+    */
     let cue_time = f32::max(0., ebu_cue_time - 0.4);
 
+    /*
+    Now we must find the last timestamp where the momentary loudness is volDrop LU
+    below the track's overall loudness level. That level is nextLevel.
+    */
     let mut next_level = loudness - vol_drop;
     let mut next_time = first_time_threshold(&measure, next_level, true);
 
+    /*
+    Little piece of logic to fix "Bohemian Rhapsody" and other songs with a long
+    but important tail.
+    */
     if duration - next_time > 15. {
         next_level = loudness - vol_drop - 15.;
         next_time = first_time_threshold(&measure, next_level, true);
@@ -130,6 +160,7 @@ fn main() {
 
     let playlist_path = args.path.to_path_buf();
 
+    // remove last piece from the path of the original playlist and add the new one
     let mut new_path = PathBuf::from(playlist_path);
     new_path.pop();
     new_path.push("new-playlist.m3u");
@@ -145,6 +176,12 @@ fn main() {
         }
     }
 
+    /*
+    We could just push the AnalyzeResults to the vector as they come, but since
+    we're doing this with threads, that would mess up the order of the tracks,
+    which may not be desired. So we make a vector with n "empty slots"
+    (for n tracks in the playlist) with an Option.
+    */
     let results = Arc::new(Mutex::new(Vec::<Option<AnalyzeResult>>::new()));
 
     for _line in &playlist_lines {
