@@ -72,10 +72,8 @@ fn analyze(path: &str, vol_drop: f32, vol_start: f32) -> AnalyzeResult {
         .unwrap();
     // We pass "-vn" because some music files have invalid images, which can't be processed by ffmpeg
 
-    let test = match String::from_utf8(test.stderr) {
-        Ok(t) => t,
-        Err(_) => panic!("Failed on filename: {path}"),
-    };
+    // from_utf8_lossy replaces wrong chars with question marks preventing crashes
+    let test = String::from_utf8_lossy(&test.stderr).to_string();
 
     let test: Vec<&str> = test.lines().collect();
 
