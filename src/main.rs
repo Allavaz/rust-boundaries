@@ -20,6 +20,10 @@ struct Args {
     /// LU below average loudness for track cue-in point
     #[arg(short, long, default_value_t = 40.)]
     cue: f32,
+
+    /// Output filename (default: '-processed' suffix)
+    #[arg(short, long, default_value_t = String::from(""))]
+    output: String,
 }
 
 struct AnalyzeResult {
@@ -158,10 +162,18 @@ fn main() {
 
     let playlist_path = args.path.to_path_buf();
 
+    let use_custom_path = if args.output.ne("") { true } else { false };
+
+    let custom_pathbuf = PathBuf::from(args.output);
+
     // remove last piece from the path of the original playlist and add the new one
     let mut new_path = PathBuf::from(playlist_path);
-    new_path.pop();
-    new_path.push("new-playlist.m3u");
+    let filename = match new_path.file_name() {
+        Some(s) => s.to_string_lossy().to_string(),
+        None => panic!("Wrong output path"),
+    };
+    let new_filename = format!("{}-processed.m3u", filename).to_string();
+    new_path.set_file_name(new_filename);
 
     let file = File::open(&args.path).unwrap();
     let reader = BufReader::new(file);
@@ -197,10 +209,18 @@ fn main() {
     let new_file = match OpenOptions::new()
         .write(true)
         .truncate(true)
-        .open(&new_path)
-    {
+        .open(if use_custom_path {
+            &custom_pathbuf
+        } else {
+            &new_path
+        }) {
         Ok(fd) => fd,
-        Err(_) => File::create(&new_path).unwrap(),
+        Err(_) => File::create(if use_custom_path {
+            &custom_pathbuf
+        } else {
+            &new_path
+        })
+        .unwrap(),
     };
     let mut writer = BufWriter::new(new_file);
 
