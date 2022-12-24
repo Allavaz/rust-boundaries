@@ -63,7 +63,7 @@ fn analyze(path: &str, vol_drop: f32, vol_start: f32) -> AnalyzeResult {
 
     let test = match String::from_utf8(test.stderr) {
         Ok(t) => t,
-        Err(_) => panic!("Failed on filename: {path}")
+        Err(_) => panic!("Failed on filename: {path}"),
     };
 
     let test: Vec<&str> = test.lines().collect();
@@ -151,10 +151,13 @@ fn main() {
         results.lock().unwrap().push(None);
     }
 
-    playlist_lines.par_iter_mut().enumerate().for_each(|(i, op)| {
-        let r = analyze(&op, args.level, args.cue);
-        results.lock().unwrap()[i] = Some(r);
-    });
+    playlist_lines
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(i, op)| {
+            let r = analyze(&op, args.level, args.cue);
+            results.lock().unwrap()[i] = Some(r);
+        });
 
     let new_file = match OpenOptions::new()
         .write(true)
