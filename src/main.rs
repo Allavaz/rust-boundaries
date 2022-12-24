@@ -1,8 +1,10 @@
 use clap::Parser;
+use rayon::prelude::*;
 use std::fs::{File, OpenOptions};
 use std::io::{prelude::*, BufReader, BufWriter};
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
@@ -140,20 +142,32 @@ fn main() {
         }
     }
 
-    let mut results: Vec<AnalyzeResult> = Vec::new();
+    let results = Arc::new(Mutex::new(Vec::<Option<AnalyzeResult>>::new()));
 
-    for path in playlist_lines {
-        results.push(analyze(&path, args.level, args.cue));
+    for _line in &playlist_lines {
+        results.lock().unwrap().push(None);
     }
 
-    let new_file = match OpenOptions::new().write(true).truncate(true).open(&new_path) {
+    playlist_lines.par_iter_mut().enumerate().for_each(|(i, op)| {
+        let r = analyze(&op, args.level, args.cue);
+        results.lock().unwrap()[i] = Some(r);
+    });
+
+    let new_file = match OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(&new_path)
+    {
         Ok(fd) => fd,
-        Err(_) => File::create(&new_path).unwrap()
+        Err(_) => File::create(&new_path).unwrap(),
     };
     let mut writer = BufWriter::new(new_file);
 
-    for result in results {
-        write!(writer, "annotate:liq_queue_in=\"{:.3}\", liq_cross_duration=\"{:.3}\", duration=\"{:.3}\", liq_amplify=\"{:.3}dB\":{}\n", 
-        result.cue_point, result.start_next, result.duration, (-23.) - result.loudness, result.path).unwrap();
+    for result in results.lock().unwrap().iter() {
+        match result {
+            Some(result) => write!(writer, "annotate:liq_queue_in=\"{:.3}\", liq_cross_duration=\"{:.3}\", duration=\"{:.3}\", liq_amplify=\"{:.3}dB\":{}\n", 
+            result.cue_point, result.start_next, result.duration, (-23.) - result.loudness, result.path).unwrap(),
+            None => continue
+        }
     }
 }
