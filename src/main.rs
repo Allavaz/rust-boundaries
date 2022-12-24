@@ -59,9 +59,12 @@ fn analyze(path: &str, vol_drop: f32, vol_start: f32) -> AnalyzeResult {
         .arg("null")
         .arg("null")
         .output()
-        .expect("Failed to run ffmpeg");
+        .unwrap();
 
-    let test = String::from_utf8(test.stderr).expect("Failed to analyze file with ffmpeg");
+    let test = match String::from_utf8(test.stderr) {
+        Ok(t) => t,
+        Err(_) => panic!("Failed on filename: {path}")
+    };
 
     let test: Vec<&str> = test.lines().collect();
 
