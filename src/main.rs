@@ -30,6 +30,7 @@ struct Args {
     append: bool,
 }
 
+#[derive(Default)]
 struct AnalyzeResult {
     start_next: f32,
     cue_point: f32,
@@ -196,12 +197,13 @@ fn main() {
     We could just push the AnalyzeResults to the vector as they come, but since
     we're doing this with threads, that would mess up the order of the tracks,
     which may not be desired. So we make a vector with n "empty slots"
-    (for n tracks in the playlist) with an Option.
+    (for n tracks in the playlist) pushing n AnalyzeResults with default values
+    to the vector.
     */
-    let results = Arc::new(Mutex::new(Vec::<Option<AnalyzeResult>>::new()));
+    let results = Arc::new(Mutex::new(Vec::<AnalyzeResult>::new()));
 
     for _line in &playlist_lines {
-        results.lock().unwrap().push(None);
+        results.lock().unwrap().push(Default::default());
     }
 
     playlist_lines
@@ -209,7 +211,7 @@ fn main() {
         .enumerate()
         .for_each(|(i, op)| {
             let r = analyze(&op, args.level, args.cue);
-            results.lock().unwrap()[i] = Some(r);
+            results.lock().unwrap()[i] = r;
         });
 
     println!(
@@ -248,11 +250,8 @@ fn main() {
         write!(writer, "#EXTM3U\n").unwrap();
     }
     for result in results.lock().unwrap().iter() {
-        match result {
-            Some(result) => write!(writer, "annotate:liq_queue_in=\"{:.3}\", liq_cross_duration=\"{:.3}\", duration=\"{:.3}\", liq_amplify=\"{:.3}dB\":{}\n", 
-            result.cue_point, result.start_next, result.duration, (-23.) - result.loudness, result.path).unwrap(),
-            None => continue
-        }
+        write!(writer, "annotate:liq_queue_in=\"{:.3}\", liq_cross_duration=\"{:.3}\", duration=\"{:.3}\", liq_amplify=\"{:.3}dB\":{}\n", 
+        result.cue_point, result.start_next, result.duration, (-23.) - result.loudness, result.path).unwrap()
     }
 
     println!("Done!")
