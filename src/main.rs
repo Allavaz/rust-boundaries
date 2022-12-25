@@ -45,11 +45,13 @@ fn first_time_threshold(measure: &Vec<(f32, f32)>, threshold: f32, rev: bool) ->
     } else {
         Box::new(measure.iter())
     };
+
     for item in iter {
         if item.1 > threshold {
             return item.0;
         }
     }
+
     0.
 }
 
