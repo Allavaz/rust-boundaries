@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[command(version, about)]
 struct Args {
     /// Path to the playlist
