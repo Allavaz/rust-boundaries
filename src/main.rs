@@ -108,6 +108,10 @@ fn analyze(path: &str, vol_drop: f32, vol_start: f32) -> AnalyzeResult {
     }
     // measure now contains a vector of a 2-float tuples: each item is ([time], [loudness])
 
+    if measure.len() == 0 {
+        panic!("Couldn't measure filename: {}", path);
+    }
+
     // get integrated loudness
     let loudness: f32 = test[test.len() - 8][15..20].trim().parse().unwrap();
 
