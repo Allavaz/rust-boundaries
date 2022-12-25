@@ -259,7 +259,7 @@ fn main() {
     }
 
     for result in results.lock().unwrap().iter() {
-        let annotate = format!("annotate:liq_cue_in=\"{:.3}\", liq_cross_duration=\"{:.3}\", duration=\"{:.3}\", liq_amplify=\"{:.3}dB\":{}\n", 
+        let annotate = format!("annotate:liq_cue_in=\"{:.3}\",liq_cross_duration=\"{:.3}\",duration=\"{:.3}\",liq_amplify=\"{:.3}dB\":{}\n", 
         result.cue_point, result.start_next, result.duration, (-23.) - result.loudness, result.path);
         result_string.push_str(&annotate);
     }
