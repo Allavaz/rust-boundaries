@@ -24,6 +24,10 @@ struct Args {
     /// Output filename (default: '-processed' suffix)
     #[arg(short, long, default_value_t = String::from(""))]
     output: String,
+
+    /// Append to output file instead of overwriting everything
+    #[arg(short, long, default_value_t = false)]
+    append: bool,
 }
 
 struct AnalyzeResult {
@@ -217,14 +221,19 @@ fn main() {
         }
     );
 
-    let new_file = match OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .open(if use_custom_path {
-            &custom_pathbuf
-        } else {
-            &new_path
-        }) {
+    let mut write_options = OpenOptions::new();
+    write_options.write(true);
+    if args.append {
+        write_options.append(true)
+    } else {
+        write_options.truncate(true)
+    };
+
+    let new_file = match write_options.open(if use_custom_path {
+        &custom_pathbuf
+    } else {
+        &new_path
+    }) {
         Ok(fd) => fd,
         Err(_) => File::create(if use_custom_path {
             &custom_pathbuf
@@ -235,7 +244,9 @@ fn main() {
     };
     let mut writer = BufWriter::new(new_file);
 
-    write!(writer, "#EXTM3U\n").unwrap();
+    if !args.append {
+        write!(writer, "#EXTM3U\n").unwrap();
+    }
     for result in results.lock().unwrap().iter() {
         match result {
             Some(result) => write!(writer, "annotate:liq_queue_in=\"{:.3}\", liq_cross_duration=\"{:.3}\", duration=\"{:.3}\", liq_amplify=\"{:.3}dB\":{}\n", 
