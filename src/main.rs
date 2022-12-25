@@ -248,13 +248,23 @@ fn main() {
     };
     let mut writer = BufWriter::new(new_file);
 
+    /*
+    We save the whole thing into a big string and then write that to avoid
+    writing (and saving) to the file multiple times unncecesarily
+    */
+    let mut result_string = String::new();
+
     if !args.append {
-        write!(writer, "#EXTM3U\n").unwrap();
+        result_string.push_str("#EXTM3U\n");
     }
+
     for result in results.lock().unwrap().iter() {
-        write!(writer, "annotate:liq_queue_in=\"{:.3}\", liq_cross_duration=\"{:.3}\", duration=\"{:.3}\", liq_amplify=\"{:.3}dB\":{}\n", 
-        result.cue_point, result.start_next, result.duration, (-23.) - result.loudness, result.path).unwrap()
+        let annotate = format!("annotate:liq_cue_in=\"{:.3}\", liq_cross_duration=\"{:.3}\", duration=\"{:.3}\", liq_amplify=\"{:.3}dB\":{}\n", 
+        result.cue_point, result.start_next, result.duration, (-23.) - result.loudness, result.path);
+        result_string.push_str(&annotate);
     }
+
+    write!(writer, "{result_string}").unwrap();
 
     println!("Done!")
 }
