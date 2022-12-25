@@ -185,7 +185,7 @@ fn main() {
         Some(s) => s.to_string_lossy().to_string(),
         None => panic!("Wrong output path"),
     };
-    let new_filename = format!("{}-processed.m3u8", file_stem).to_string();
+    let new_filename = format!("{}-processed.m3u8", file_stem);
     new_path.set_file_name(new_filename);
 
     let file = File::open(&args.path).unwrap();
