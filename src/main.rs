@@ -221,7 +221,8 @@ fn main() {
         });
 
     println!(
-        "Done with analysis, now writing to output playlist: {}",
+        "Done with analysis, now {} to output playlist: {}",
+        if args.append { "appending" } else { "writing" },
         if use_custom_path {
             custom_pathbuf.display()
         } else {
