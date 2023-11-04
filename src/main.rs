@@ -255,7 +255,7 @@ fn main() {
 
     /*
     We save the whole thing into a big string and then write that to avoid
-    writing (and saving) to the file multiple times unncecesarily
+    writing (and saving) to the file multiple times unnecessarily
     */
     let mut result_string = String::new();
 
